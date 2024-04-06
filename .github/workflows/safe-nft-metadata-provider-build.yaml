@@ -1,0 +1,70 @@
+# To better understand this file read this:
+# https://docs.ionos.space/docs/github-actions-customization/
+
+name: "Deploy Now: Execute Build"
+
+on:
+  workflow_call:
+    inputs:
+      site-url:
+        required: true
+        type: string
+      branch-id:
+        required: true
+        type: string
+
+env:
+  DEPLOYMENT_FOLDER: dist
+
+jobs:
+# Please do not rename this job
+  build-project:
+    name: build safe-nft-metadata-provider
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: v20.x
+
+      - name: Build Node assets
+        env:
+          ASSETS_EXTENSION: .png
+          CI: true
+          CONTRACT_ADDRESS: '0x0dbb917a1AA94eAe48F66c17F6117ec7B902F362'
+          FULL_REFRESH_DELAY: 3600
+          PRIVATE_ASSETS_PATH: /private/assets
+          PRIVATE_METADATA_PATH: /private/metadata
+          PUBLIC_ASSETS_PATH: /public/assets
+          PUBLIC_ASSETS_URI_TEMPLATE: https://elevine.sgp1.digitaloceanspaces.com/elevine/public/assets/{{TOKEN_ID}}.png
+          PUBLIC_METADATA_PATH: /public/metadata
+          RPC_ENDPOINT: https://eth-sepolia.g.alchemy.com/v2/O-v2CC8u3fwDBb2gjn8Q7Kb8jdm_E9PO
+          S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+          S3_BUCKET_NAME: elevine
+          S3_ENDPOINT_URL: https://sgp1.digitaloceanspaces.com
+          S3_PATH_PREFIX: elevine
+          S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+          SITE_URL: ${{ inputs.site-url }}
+        run: |
+          npm install --global yarn
+          yarn install --frozen-lockfile
+          yarn build
+          yarn start
+
+# Please do not touch the following action
+      - name: Store deployment content
+        uses: ionos-deploy-now/artifact-action@v1
+        with:
+          api-key: ${{ secrets.IONOS_API_KEY }}
+          service-host: api-us.ionos.space
+          project-id: 13288447-beb9-4367-b42c-c91e2a84986c
+          branch-id: ${{ inputs.branch-id }}
+          version: ${{ github.sha }}
+          folder: ${{ env.DEPLOYMENT_FOLDER }}
+          config-file: .deploy-now/safe-nft-metadata-provider/config.yaml
+          action: upload
